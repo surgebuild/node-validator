@@ -205,6 +205,8 @@ ExecStart=$(which surged) start
 Restart=always
 RestartSec=3
 LimitNOFILE=65535
+StandardOutput=append:/var/log/surge-validator.log
+StandardError=append:/var/log/surge-validator-error.log
 
 [Install]
 WantedBy=multi-user.target
