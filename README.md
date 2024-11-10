@@ -69,7 +69,7 @@ nano ~/.surge/config/validator.json
     "@type": "/cosmos.crypto.ed25519.PubKey",
     "key": "your node public key"
   },
-  "amount": "100000000srg",
+  "amount": "100000000surg",
   "moniker": "your node name",
   "identity": "",
   "website": "http://your-validator-website.com",
@@ -90,7 +90,7 @@ Submit the create-validator transaction:
 surged tx staking create-validator /root/.surge/config/validator.json \
   --from <your account name> \
   --chain-id surge \
-  --fees 70srg \
+  --fees 70surg \
   --gas auto \
   --gas-adjustment 1.4 \
   --home ~/.surge \
