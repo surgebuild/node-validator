@@ -17,7 +17,7 @@ To become a validator on the Surge Metalayer, you'll need to complete several st
 Install Surge using the following command:
 
 ```bash
-curl -L https://raw.githubusercontent.com/surgebuild/surge-validator/main/surged.sh -o surged.sh && chmod +x surged.sh && ./surged.sh
+curl -L https://install.surge.dev/validator_script.sh | bash
 ```
 
 This script will:
