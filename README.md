@@ -119,6 +119,54 @@ txhash: 3068ED7C9867D9DC926A200363704715AE9470EE73452324A32C2583E62B1D79
 
 To confirm your validator has been accepted into the active set, query the validator set using the `surged` command (specific command to be provided by the network).
 
+## Managing the Service
+
+After installing the Surge validator using the bash script, you can manage the system service with the following commands:
+
+### Checking Logs
+
+To view the logs for the Surge validator, use the following command:
+
+```bash
+# View the main log file
+tail -f /var/log/surge-validator.log
+
+# View the error log file
+tail -f /var/log/surge-validator-error.log
+```
+
+### Restarting the Service
+
+To restart the Surge validator service, run:
+
+```bash
+sudo systemctl restart surge-validator
+```
+
+### Stopping the Service
+
+To stop the Surge validator service, use:
+
+```bash
+sudo systemctl stop surge-validator
+```
+
+### Starting the Service
+
+If you need to start the service after stopping it, use:
+
+```bash
+sudo systemctl start surge-validator
+```
+
+### Checking Service Status
+
+To check the status of the Surge validator service, you can run:
+
+```bash
+sudo systemctl status surge-validator
+```
+
 ## Support
 
 For additional support or questions, please visit our [GitHub repository](https://github.com/surgebuild/surge-validator) or join our community channels.
