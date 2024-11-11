@@ -1,4 +1,4 @@
-# surge-validator
+# Surge Validator Node Setup Guide
 
 A guide to setting up and operating a validator node on the Surge Metalayer network.
 
