@@ -12,7 +12,15 @@ To become a validator on the Surge Metalayer, you'll need to complete several st
 - Creating a validator account
 - Staking tokens and becoming an active validator
 
-## Quick Installation
+### Hardware Requirements
+- CPU: 4+ cores (recommended)
+- RAM: 4GB minimum, 8GB recommended
+- Storage: 250GB minimum SSD/NVMe (recommended for future growth)
+- Network: Stable internet connection with 10Mbps+ bandwidth
+
+## Installation Options
+
+### Option 1: Remote Installation (Recommended)
 
 Install Surge using the following command:
 
@@ -20,7 +28,20 @@ Install Surge using the following command:
 curl -L https://install.surge.dev/surged.sh | bash
 ```
 
-This script will:
+### Option 2: Local Installation
+
+1. Clone the repository:
+```bash
+git clone https://github.com/surgebuild/node-validator
+cd node-validator
+```
+
+2. Make the script executable and run:
+```bash
+./surged.sh
+```
+
+The installation script will:
 - Install all required software
 - Configure the node
 - Begin syncing with the network
@@ -37,58 +58,45 @@ Look for the `catching_up` field in the output - when it shows `false`, your nod
 
 ## Validator Setup
 
-### Creating a Validator Account
-
-> **Note:** Skip this section if you're only operating a node, not a validator node.
-
-Create a new account:
-
+### 1. Create Validator Account
 ```bash
-surged keys add <enter-the-account-name-you-want>
+surged keys add <validator-account-name>
 ```
 
-This will generate:
-- A new account address
-- A mnemonic phrase
+⚠️ **Important:** Safely store the generated mnemonic phrase - it's required for account recovery.
 
-⚠️ **Important:** Safely store your mnemonic phrase - it's required to recover your account.
-
-### Configuring Validator Details
-
-1. Create a validator configuration file:
+### 2. Configure Validator
+Create and edit the validator configuration:
 
 ```bash
-nano ~/.surge/config/validator.json
-```
+# Create config directory if it doesn't exist
+mkdir -p ~/.surge/config
 
-2. Add the following configuration (replace with your details):
-
-```json
+# Create and edit validator config
+cat > ~/.surge/config/validator.json << 'EOF'
 {
   "pubkey": {
     "@type": "/cosmos.crypto.ed25519.PubKey",
-    "key": "your node public key"
+    "key": "<your-node-public-key>"
   },
   "amount": "100000000surg",
-  "moniker": "your node name",
+  "moniker": "<your-validator-name>",
   "identity": "",
-  "website": "http://your-validator-website.com",
-  "security": "contact@your-validator.com",
-  "details": "A description of your validator",
+  "website": "https://your-website.com",
+  "security": "security@your-validator.com",
+  "details": "Description of your validator",
   "commission-rate": "0.05",
   "commission-max-rate": "0.20",
   "commission-max-change-rate": "0.01",
   "min-self-delegation": "1"
 }
+EOF
 ```
 
-### Creating the Validator
-
-Submit the create-validator transaction:
-
+### 3. Create Validator
 ```bash
-surged tx staking create-validator /root/.surge/config/validator.json \
-  --from <your account name> \
+surged tx staking create-validator ~/.surge/config/validator.json \
+  --from <validator-account-name> \
   --chain-id surge \
   --fees 70surg \
   --gas auto \
@@ -97,27 +105,11 @@ surged tx staking create-validator /root/.surge/config/validator.json \
   --node http://localhost:26657
 ```
 
-Upon successful submission, you'll receive a transaction hash. Example response:
-
+### 4. Verify Status
+Check if your validator is in the active set:
 ```bash
-code: 0
-codespace: ""
-data: ""
-events: []
-gas_used: "0"
-gas_wanted: "0"
-height: "0"
-info: ""
-logs: []
-raw_log: '[]'
-timestamp: ""
-tx: null
-txhash: 3068ED7C9867D9DC926A200363704715AE9470EE73452324A32C2583E62B1D79
+surged query staking validator $(surged keys show <validator-account-name> --bech val -a)
 ```
-
-### Verifying Validator Status
-
-To confirm your validator has been accepted into the active set, query the validator set using the `surged` command (specific command to be provided by the network).
 
 ## Managing the Service
 
