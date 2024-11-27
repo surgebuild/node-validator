@@ -248,20 +248,21 @@ done
 # Monitor sync progress
 echo "Monitoring sync progress..."
 while true; do
-    STATUS=$(check_node_status)
+    STATUS=$(surged status 2>/dev/null)
     if [ $? -eq 0 ]; then
-        CATCHING_UP=$(echo $STATUS | cut -d'|' -f1)
-        LATEST_HEIGHT=$(echo $STATUS | cut -d'|' -f2)
-        EARLIEST_HEIGHT=$(echo $STATUS | cut -d'|' -f3)
+        CATCHING_UP=$(echo "$STATUS" | jq -r '.sync_info.catching_up')
+        LATEST_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.latest_block_height')
+        EARLIEST_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.earliest_block_height')
+        LATEST_TIME=$(echo "$STATUS" | jq -r '.sync_info.latest_block_time')
         
         if [ "$CATCHING_UP" = "true" ]; then
             PROGRESS=$(echo "scale=2; ($EARLIEST_HEIGHT/$LATEST_HEIGHT) * 100" | bc)
             echo "Syncing... Block: $EARLIEST_HEIGHT / $LATEST_HEIGHT (${PROGRESS}%)"
-            echo "Latest block time: $(surged status | jq -r '.sync_info.latest_block_time')"
+            echo "Latest block time: $LATEST_TIME"
             sleep 10
         else
             echo "Node synced successfully at block height $LATEST_HEIGHT!"
-            echo "Latest block time: $(surged status | jq -r '.sync_info.latest_block_time')"
+            echo "Latest block time: $LATEST_TIME"
             break
         fi
     else
