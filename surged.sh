@@ -110,6 +110,7 @@ fi
 
 echo "### Installing the chain's binary ###"
 BINARY_URL="https://surge.sfo3.cdn.digitaloceanspaces.com/surged"
+LIBWASM_URL="https://github.com/CosmWasm/wasmvm/releases/download/v1.5.0/libwasmvm.x86_64.so"
 
 # Download and install the binary
 if ! command -v surged &> /dev/null; then
@@ -118,6 +119,12 @@ if ! command -v surged &> /dev/null; then
     chmod +x surged
     echo "Moving surged binary to /usr/local/bin..."
     sudo mv surged /usr/local/bin/
+    
+    # Download and install libwasmvm
+    echo "Downloading and installing libwasmvm..."
+    curl -L $LIBWASM_URL -o libwasmvm.x86_64.so
+    sudo mv libwasmvm.x86_64.so /usr/lib/
+    sudo ldconfig
     
     # Verify the installation
     if ! command -v surged &> /dev/null; then
