@@ -109,26 +109,23 @@ else
 fi
 
 echo "### Installing the chain's binary ###"
-# Clone the Surge network repo and build the binary if not already present
-if [ ! -d "surge-network" ]; then
-    echo "Cloning Surge network repository..."
-    git clone https://github.com/surgebuild/surge-network.git
-    cd surge-network
-    git checkout feat/wasmd
-else
-    echo "Surge network repository already exists, updating..."
-    cd surge-network
-    git pull
-fi
+BINARY_URL="https://surge.sfo3.cdn.digitaloceanspaces.com/surged"
 
-ignite chain build
-
-# Move surged binary to system-wide directory if needed
+# Download and install the binary
 if ! command -v surged &> /dev/null; then
+    echo "Downloading surged binary..."
+    curl -L $BINARY_URL -o surged
+    chmod +x surged
     echo "Moving surged binary to /usr/local/bin..."
-    sudo cp /root/go/bin/surged /usr/local/bin/
+    sudo mv surged /usr/local/bin/
+    
+    # Verify the installation
+    if ! command -v surged &> /dev/null; then
+        echo "Error: Failed to install surged binary"
+        exit 1
+    fi
 else
-    echo "surged is installed:"
+    echo "surged is already installed:"
     surged version
 fi
 
