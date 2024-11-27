@@ -281,6 +281,5 @@ echo "
 ==============================================
 To check node status: surged status
 To view logs: sudo journalctl -u surge-validator -f
-To monitor sync progress: Run this script again
 ==============================================
 "
