@@ -222,54 +222,58 @@ sudo systemctl daemon-reload
 sudo systemctl enable surge-validator
 sudo systemctl start surge-validator
 
-# Improved sync status checking
-echo "Waiting for node to start and checking sync status..."
-echo "This may take a few minutes..."
+# After starting the service, but before monitoring
+echo
+echo "Node has been started and is syncing in the background."
+read -p "Would you like to monitor the syncing progress? (y/n) " MONITOR_SYNC
 
-# Function to check if node is responding
-check_node_status() {
-    surged status 2>&1 | jq -r '.sync_info.catching_up + "|" + .sync_info.latest_block_height + "|" + .sync_info.earliest_block_height' 2>/dev/null
-}
-
-# Wait for node to start responding (max 60 seconds)
-echo "Waiting for node to start..."
-for i in {1..12}; do
-    if surged status &>/dev/null; then
-        echo "Node is responding!"
-        break
-    fi
-    echo -n "."
-    sleep 5
-    if [ $i -eq 12 ]; then
-        echo "Warning: Node is taking longer than expected to start. Check logs with: sudo journalctl -u surge-validator -f"
-    fi
-done
-
-# Monitor sync progress
-echo "Monitoring sync progress..."
-while true; do
-    STATUS=$(surged status 2>/dev/null)
-    if [ $? -eq 0 ]; then
-        CATCHING_UP=$(echo "$STATUS" | jq -r '.sync_info.catching_up')
-        LATEST_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.latest_block_height')
-        EARLIEST_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.earliest_block_height')
-        LATEST_TIME=$(echo "$STATUS" | jq -r '.sync_info.latest_block_time')
-        
-        if [ "$CATCHING_UP" = "true" ]; then
-            PROGRESS=$(echo "scale=2; ($EARLIEST_HEIGHT/$LATEST_HEIGHT) * 100" | bc)
-            echo "Syncing... Block: $EARLIEST_HEIGHT / $LATEST_HEIGHT (${PROGRESS}%)"
-            echo "Latest block time: $LATEST_TIME"
-            sleep 10
+if [ "$MONITOR_SYNC" = "y" ]; then
+    echo "Monitoring sync progress..."
+    # Get the latest chain height from a public RPC endpoint
+    CHAIN_RPC="http://146.190.149.75:26657"
+    
+    while true; do
+        # Get local node status
+        STATUS=$(surged status 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            CATCHING_UP=$(echo "$STATUS" | jq -r '.sync_info.catching_up')
+            LOCAL_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.latest_block_height')
+            LATEST_TIME=$(echo "$STATUS" | jq -r '.sync_info.latest_block_time')
+            
+            # Get latest chain height
+            CHAIN_HEIGHT=$(curl -s $CHAIN_RPC/status | jq -r '.result.sync_info.latest_block_height')
+            
+            if [ "$CATCHING_UP" = "true" ]; then
+                # Calculate real progress based on chain height
+                BLOCKS_BEHIND=$((CHAIN_HEIGHT - LOCAL_HEIGHT))
+                PROGRESS=$(echo "scale=2; ($LOCAL_HEIGHT * 100) / $CHAIN_HEIGHT" | bc)
+                
+                # Clear previous line and show updated status
+                echo -ne "\033[K" # Clear line
+                echo "Syncing... Current Block: $LOCAL_HEIGHT / $CHAIN_HEIGHT (${PROGRESS}%)"
+                echo "Blocks behind: $BLOCKS_BEHIND"
+                echo "Latest block time: $LATEST_TIME"
+                echo -ne "\033[2A" # Move cursor up 2 lines
+                sleep 10
+            else
+                echo -ne "\033[K" # Clear line
+                echo "Node synced successfully at block height $LOCAL_HEIGHT!"
+                echo "Latest block time: $LATEST_TIME"
+                break
+            fi
         else
-            echo "Node synced successfully at block height $LATEST_HEIGHT!"
-            echo "Latest block time: $LATEST_TIME"
-            break
+            echo "Waiting for node to respond..."
+            sleep 5
         fi
-    else
-        echo "Waiting for node to respond..."
-        sleep 5
-    fi
-done
+    done
+else
+    echo "
+Node is syncing in the background. You can:
+- Check sync status later with: surged status
+- Monitor logs with: sudo journalctl -u surge-validator -f
+- Run this script again to monitor sync progress
+"
+fi
 
 echo "
 ==============================================
@@ -277,5 +281,6 @@ echo "
 ==============================================
 To check node status: surged status
 To view logs: sudo journalctl -u surge-validator -f
+To monitor sync progress: Run this script again
 ==============================================
 "
