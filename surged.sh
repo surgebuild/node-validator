@@ -49,7 +49,7 @@ case "$(uname -s)" in
             # Debian/Ubuntu
             echo "Installing dependencies for Debian/Ubuntu..."
             sudo apt-get update
-            sudo apt-get install -y build-essential gcc pkg-config libssl-dev
+            sudo apt-get install -y build-essential gcc pkg-config libssl-dev jq
         elif [ -f /etc/redhat-release ]; then
             # RHEL/CentOS/Fedora
             echo "Installing dependencies for RHEL/CentOS/Fedora..."
@@ -110,21 +110,21 @@ fi
 
 echo "### Installing the chain's binary ###"
 BINARY_URL="https://surge.sfo3.cdn.digitaloceanspaces.com/surged"
-LIBWASM_URL="https://github.com/CosmWasm/wasmvm/releases/download/v1.5.0/libwasmvm.x86_64.so"
+LIBWASM_URL="https://github.com/CosmWasm/wasmvm/releases/download/v2.1.2/libwasmvm.x86_64.so"
 
-# Download and install the binary
+# Always install libwasmvm first
+echo "Downloading and installing libwasmvm..."
+curl -L $LIBWASM_URL -o libwasmvm.x86_64.so
+sudo mv libwasmvm.x86_64.so /usr/lib/
+sudo ldconfig
+
+# Then handle the surged binary
 if ! command -v surged &> /dev/null; then
     echo "Downloading surged binary..."
     curl -L $BINARY_URL -o surged
     chmod +x surged
     echo "Moving surged binary to /usr/local/bin..."
     sudo mv surged /usr/local/bin/
-    
-    # Download and install libwasmvm
-    echo "Downloading and installing libwasmvm..."
-    curl -L $LIBWASM_URL -o libwasmvm.x86_64.so
-    sudo mv libwasmvm.x86_64.so /usr/lib/
-    sudo ldconfig
     
     # Verify the installation
     if ! command -v surged &> /dev/null; then
@@ -222,10 +222,59 @@ sudo systemctl daemon-reload
 sudo systemctl enable surge-validator
 sudo systemctl start surge-validator
 
-# Check sync status
-echo "Checking sync status..."
-until surged status | grep -q '"catching_up": false'; do
-    echo "Node is syncing, waiting for sync to complete..."
-    sleep 30
+# Improved sync status checking
+echo "Waiting for node to start and checking sync status..."
+echo "This may take a few minutes..."
+
+# Function to check if node is responding
+check_node_status() {
+    surged status 2>&1 | jq -r '.sync_info.catching_up + "|" + .sync_info.latest_block_height + "|" + .sync_info.earliest_block_height' 2>/dev/null
+}
+
+# Wait for node to start responding (max 60 seconds)
+echo "Waiting for node to start..."
+for i in {1..12}; do
+    if surged status &>/dev/null; then
+        echo "Node is responding!"
+        break
+    fi
+    echo -n "."
+    sleep 5
+    if [ $i -eq 12 ]; then
+        echo "Warning: Node is taking longer than expected to start. Check logs with: sudo journalctl -u surge-validator -f"
+    fi
 done
-echo "Node synced successfully!"
+
+# Monitor sync progress
+echo "Monitoring sync progress..."
+while true; do
+    STATUS=$(check_node_status)
+    if [ $? -eq 0 ]; then
+        CATCHING_UP=$(echo $STATUS | cut -d'|' -f1)
+        LATEST_HEIGHT=$(echo $STATUS | cut -d'|' -f2)
+        EARLIEST_HEIGHT=$(echo $STATUS | cut -d'|' -f3)
+        
+        if [ "$CATCHING_UP" = "true" ]; then
+            PROGRESS=$(echo "scale=2; ($EARLIEST_HEIGHT/$LATEST_HEIGHT) * 100" | bc)
+            echo "Syncing... Block: $EARLIEST_HEIGHT / $LATEST_HEIGHT (${PROGRESS}%)"
+            echo "Latest block time: $(surged status | jq -r '.sync_info.latest_block_time')"
+            sleep 10
+        else
+            echo "Node synced successfully at block height $LATEST_HEIGHT!"
+            echo "Latest block time: $(surged status | jq -r '.sync_info.latest_block_time')"
+            break
+        fi
+    else
+        echo "Waiting for node to respond..."
+        sleep 5
+    fi
+done
+
+echo "
+==============================================
+🎉 Node setup completed successfully! 🎉
+==============================================
+To check node status: surged status
+To view logs: sudo journalctl -u surge-validator -f
+==============================================
+"
