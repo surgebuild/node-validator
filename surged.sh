@@ -49,7 +49,7 @@ case "$(uname -s)" in
             # Debian/Ubuntu
             echo "Installing dependencies for Debian/Ubuntu..."
             sudo apt-get update
-            sudo apt-get install -y build-essential gcc pkg-config libssl-dev
+            sudo apt-get install -y build-essential gcc pkg-config libssl-dev jq
         elif [ -f /etc/redhat-release ]; then
             # RHEL/CentOS/Fedora
             echo "Installing dependencies for RHEL/CentOS/Fedora..."
@@ -109,26 +109,30 @@ else
 fi
 
 echo "### Installing the chain's binary ###"
-# Clone the Surge network repo and build the binary if not already present
-if [ ! -d "surge-network" ]; then
-    echo "Cloning Surge network repository..."
-    git clone https://github.com/surgebuild/surge-network.git
-    cd surge-network
-    git checkout feat/wasmd
-else
-    echo "Surge network repository already exists, updating..."
-    cd surge-network
-    git pull
-fi
+BINARY_URL="https://surge.sfo3.cdn.digitaloceanspaces.com/surged"
+LIBWASM_URL="https://github.com/CosmWasm/wasmvm/releases/download/v2.1.2/libwasmvm.x86_64.so"
 
-ignite chain build
+# Always install libwasmvm first
+echo "Downloading and installing libwasmvm..."
+curl -L $LIBWASM_URL -o libwasmvm.x86_64.so
+sudo mv libwasmvm.x86_64.so /usr/lib/
+sudo ldconfig
 
-# Move surged binary to system-wide directory if needed
+# Then handle the surged binary
 if ! command -v surged &> /dev/null; then
+    echo "Downloading surged binary..."
+    curl -L $BINARY_URL -o surged
+    chmod +x surged
     echo "Moving surged binary to /usr/local/bin..."
-    sudo cp /root/go/bin/surged /usr/local/bin/
+    sudo mv surged /usr/local/bin/
+    
+    # Verify the installation
+    if ! command -v surged &> /dev/null; then
+        echo "Error: Failed to install surged binary"
+        exit 1
+    fi
 else
-    echo "surged is installed:"
+    echo "surged is already installed:"
     surged version
 fi
 
@@ -218,10 +222,65 @@ sudo systemctl daemon-reload
 sudo systemctl enable surge-validator
 sudo systemctl start surge-validator
 
-# Check sync status
-echo "Checking sync status..."
-until surged status | grep -q '"catching_up": false'; do
-    echo "Node is syncing, waiting for sync to complete..."
-    sleep 30
-done
-echo "Node synced successfully!"
+# After starting the service, but before monitoring
+echo
+echo "Node has been started and is syncing in the background."
+read -p "Would you like to monitor the syncing progress? (y/n) " MONITOR_SYNC
+
+if [ "$MONITOR_SYNC" = "y" ]; then
+    echo "Monitoring sync progress..."
+    # Get the latest chain height from a public RPC endpoint
+    CHAIN_RPC="http://146.190.149.75:26657"
+    
+    while true; do
+        # Get local node status
+        STATUS=$(surged status 2>/dev/null)
+        if [ $? -eq 0 ]; then
+            CATCHING_UP=$(echo "$STATUS" | jq -r '.sync_info.catching_up')
+            LOCAL_HEIGHT=$(echo "$STATUS" | jq -r '.sync_info.latest_block_height')
+            LATEST_TIME=$(echo "$STATUS" | jq -r '.sync_info.latest_block_time')
+            
+            # Get latest chain height
+            CHAIN_HEIGHT=$(curl -s $CHAIN_RPC/status | jq -r '.result.sync_info.latest_block_height')
+            
+            if [ "$CATCHING_UP" = "true" ]; then
+                # Calculate real progress based on chain height
+                BLOCKS_BEHIND=$((CHAIN_HEIGHT - LOCAL_HEIGHT))
+                PROGRESS=$(echo "scale=2; ($LOCAL_HEIGHT * 100) / $CHAIN_HEIGHT" | bc)
+                
+                # Clear previous line and show updated status
+                echo -ne "\033[K" # Clear line
+                echo "Syncing... Current Block: $LOCAL_HEIGHT / $CHAIN_HEIGHT (${PROGRESS}%)"
+                echo "Blocks behind: $BLOCKS_BEHIND"
+                echo "Latest block time: $LATEST_TIME"
+                echo -ne "\033[2A" # Move cursor up 2 lines
+                sleep 10
+            else
+                echo -ne "\033[K" # Clear line
+                echo "Node synced successfully at block height $LOCAL_HEIGHT!"
+                echo "Latest block time: $LATEST_TIME"
+                break
+            fi
+        else
+            echo "Waiting for node to respond..."
+            sleep 5
+        fi
+    done
+else
+    echo "
+Node is syncing in the background. You can:
+- Check sync status later with: surged status
+- Monitor logs with: sudo journalctl -u surge-validator -f
+- Run this script again to monitor sync progress
+"
+fi
+
+echo "
+==============================================
+🎉 Node setup completed successfully! 🎉
+==============================================
+To check node status: surged status
+To view logs: sudo journalctl -u surge-validator -f
+To monitor sync progress: Run this script again
+==============================================
+"
