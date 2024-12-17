@@ -97,7 +97,7 @@ EOF
 ```bash
 surged tx staking create-validator ~/.surge/config/validator.json \
   --from <validator-account-name> \
-  --chain-id surge \
+  --chain-id surge-alphatestnet-1 \
   --fees 70surg \
   --gas auto \
   --gas-adjustment 1.4 \

@@ -140,7 +140,7 @@ fi
 echo "Initializing the node with name $NODE_NAME..."
 if [ ! -f "$HOME/.surge/config/genesis.json" ]; then
     echo "Initializing the node with name $NODE_NAME..."
-    surged init "$NODE_NAME" --chain-id surge
+    surged init "$NODE_NAME" --chain-id surge-alphatestnet-1
 else
     echo "Node is already initialized."
 fi
@@ -153,7 +153,7 @@ if [ -f "$GENESIS_PATH" ]; then
     echo "Genesis file already exists, removing..."
     rm -f "$GENESIS_PATH"
 fi
-curl http://146.190.149.75:26657/genesis | jq '.result.genesis' > "$GENESIS_PATH"
+curl https://alphatestnet.surge.dev/genesis | jq '.result.genesis' > "$GENESIS_PATH"
 
 # Update minimum-gas-prices in app.toml
 APP_TOML="$HOME/.surge/config/app.toml"
@@ -230,7 +230,7 @@ read -p "Would you like to monitor the syncing progress? (y/n) " MONITOR_SYNC
 if [ "$MONITOR_SYNC" = "y" ]; then
     echo "Monitoring sync progress..."
     # Get the latest chain height from a public RPC endpoint
-    CHAIN_RPC="http://146.190.149.75:26657"
+    CHAIN_RPC="https://alphatestnet.surge.dev"
     
     while true; do
         # Get local node status
